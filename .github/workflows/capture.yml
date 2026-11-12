@@ -46,7 +46,7 @@ jobs:
             });
 
             await page.goto(
-              "https://game.safexcel.com/?view=board&room=safexcel-tpha",
+              "https://game.safexcel.com/?view=board&room=safexcel-9dvu",
               {
                 waitUntil: "networkidle",
                 timeout: 120000
