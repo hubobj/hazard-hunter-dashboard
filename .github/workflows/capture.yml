@@ -4,20 +4,31 @@ on:
   workflow_dispatch:
 
   schedule:
+    # GitHub Actions 的 cron 是 UTC 时间，不是北京时间。
+    # 每 15 分钟跑一次；定时任务只在默认分支上生效，
+    # 且实际开始时间可能比整点晚几分钟。
     - cron: '*/15 * * * *'
 
 permissions:
   contents: write
+
+# 防止上一次还没跑完、下一班又启动，两个 run 同时 push 冲突。
+concurrency:
+  group: capture-hazard-board
+  cancel-in-progress: false
 
 jobs:
 
   screenshot:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -49,15 +60,18 @@ jobs:
               }
             });
 
+            // 原版用 networkidle：这个看板页如果有 websocket / 轮询，
+            // 网络永远不会 idle，120 秒后直接超时、截不到图。
+            // 改成 domcontentloaded + 固定等待，等画面渲染出来即可。
             await page.goto(
               'https://game.safexcel.com/?view=board&room=safexcel-9dvu',
               {
-                waitUntil: 'networkidle',
+                waitUntil: 'domcontentloaded',
                 timeout: 120000
               }
             );
 
-            await page.waitForTimeout(10000);
+            await page.waitForTimeout(15000);
 
             await page.screenshot({
               path: 'latest.png',
@@ -72,19 +86,29 @@ jobs:
 
           node shot.js
 
-      - name: Commit Screenshot
+      # 只覆盖、不留历史：不往 main 分支提交，
+      # 而是每次重建一个只有 latest.png 的孤儿分支 screenshots，
+      # 强制推送覆盖它。这个分支的历史永远只有 1 个 commit，
+      # main 分支的提交记录完全不受影响。
+      - name: Publish Screenshot
         run: |
+
+          if [ ! -s latest.png ]; then
+            echo "latest.png missing or empty"
+            exit 1
+          fi
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          if [ -f latest.png ]; then
+          # 先把截图挪到 /tmp，下面清空工作区时不会被一起删掉
+          cp latest.png /tmp/latest.png
 
-            git add latest.png
+          git branch -D screenshots 2>/dev/null || true
+          git checkout --orphan screenshots
+          git rm -rf . --quiet || true
+          cp /tmp/latest.png latest.png
 
-            if ! git diff --cached --quiet; then
-              git commit -m "update screenshot"
-              git push
-            fi
-
-          fi
+          git add latest.png
+          git commit -m "update screenshot $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push --force origin screenshots
