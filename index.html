@@ -1,192 +1,255 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Hazard Hunter Dashboard</title>
+<title>Hazard Hunter Live Board</title>
 
 <style>
 
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
 body{
-    font-family:Segoe UI;
-    background:#f5f7fa;
-    margin:20px;
+    font-family:"Segoe UI",Arial,sans-serif;
+    background:#eef2f5;
+    padding:15px;
+    color:#222;
 }
 
-h1{
-    text-align:center;
-}
-
-.cards{
+.header{
     display:flex;
-    gap:20px;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:20px;
+}
+
+.title h1{
+    font-size:56px;
+    margin-bottom:5px;
+}
+
+.title h2{
+    color:#2aa7a5;
+    font-weight:400;
+}
+
+.kpis{
+    display:flex;
+    gap:15px;
+}
+
+.kpi{
+    width:170px;
+    background:white;
+    border-radius:15px;
+    text-align:center;
+    padding:20px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+.kpi .value{
+    font-size:64px;
+    color:#2aa7a5;
+    font-weight:bold;
+}
+
+.kpi .label{
+    font-size:28px;
+}
+
+.content{
+    display:grid;
+    grid-template-columns:72% 28%;
+    gap:15px;
 }
 
 .card{
-    flex:1;
     background:white;
+    border-radius:18px;
     padding:20px;
-    border-radius:10px;
-    text-align:center;
-    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
 
-.value{
-    font-size:40px;
-    color:#0078d4;
+.card h2{
+    margin-bottom:15px;
+    font-size:36px;
 }
 
-.panel{
-    background:white;
-    margin-top:20px;
-    padding:20px;
-    border-radius:10px;
+.hazard-row{
+    display:grid;
+    grid-template-columns:330px 1fr 80px;
+    align-items:center;
+    gap:15px;
+    margin-bottom:12px;
 }
 
-table{
+.bar-bg{
+    background:#dfe3e8;
+    height:22px;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.bar{
+    height:22px;
+}
+
+.orange{
+    background:#f28c28;
+}
+
+.green{
+    background:#47c765;
+}
+
+.rank-table{
     width:100%;
     border-collapse:collapse;
 }
 
-td,th{
+.rank-table td{
+    padding:12px;
+    font-size:28px;
+}
+
+.rank-table tr:nth-child(odd){
+    background:#f9f5e7;
+}
+
+.rank{
+    color:#c89400;
+    font-weight:bold;
+    width:50px;
+}
+
+.score{
+    text-align:right;
+    color:#2aa7a5;
+    font-weight:bold;
+}
+
+.bottom{
+    margin-top:15px;
+    display:grid;
+    grid-template-columns:80% 20%;
+    gap:15px;
+}
+
+.finds{
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+}
+
+.find-card{
+    width:280px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    background:#eef7fb;
+    border-radius:12px;
     padding:10px;
-    border-bottom:1px solid #ddd;
+}
+
+.find-card img{
+    width:80px;
+    height:80px;
+    object-fit:cover;
+    border-radius:8px;
+}
+
+.find-title{
+    font-weight:bold;
+    font-size:24px;
+}
+
+.find-sub{
+    color:#666;
+}
+
+.qr{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+}
+
+.qr img{
+    width:220px;
+}
+
+.refresh{
+    position:fixed;
+    right:10px;
+    bottom:10px;
+    color:#999;
+    font-size:12px;
 }
 
 </style>
 </head>
+
 <body>
 
-<h1>Hazard Hunter Live Board</h1>
+<div class="header">
 
-<div class="cards">
+    <div class="title">
+        <h1>Hazard Hunter • Live Board</h1>
+        <h2 id="theme">Commercial Building Fire Safety</h2>
+    </div>
 
-<div class="card">
-<div class="value" id="participants">0</div>
-Participants
-</div>
+    <div class="kpis">
 
-<div class="card">
-<div class="value" id="found">0</div>
-Hazards Found
-</div>
+        <div class="kpi">
+            <div class="value" id="inspected">0</div>
+            <div class="label">Inspected</div>
+        </div>
 
-<div class="card">
-<div class="value" id="inspected">0</div>
-Inspected
-</div>
+        <div class="kpi">
+            <div class="value" id="found">0</div>
+            <div class="label">Found</div>
+        </div>
 
-</div>
+        <div class="kpi">
+            <div class="value" id="participants">0</div>
+            <div class="label">Participants</div>
+        </div>
 
-<div class="panel">
-
-<h2>Top Hunters</h2>
-
-<table id="hunters">
-
-<tr>
-<th>Rank</th>
-<th>Name</th>
-<th>Effective</th>
-<th>Found</th>
-</tr>
-
-</table>
+    </div>
 
 </div>
 
-<div class="panel">
+<div class="content">
 
-<h2>Recent Finds</h2>
+    <div class="card">
+        <h2>Top Hazards</h2>
 
-<table id="finds">
+        <div id="hazards"></div>
 
-<tr>
-<th>User</th>
-<th>Hazard</th>
-<th>Time</th>
-</tr>
+    </div>
 
-</table>
+    <div>
+
+        <div class="card">
+            <h2>🏆 Hunter Board</h2>
+
+            <table class="rank-table" id="hunters"></table>
+
+        </div>
+
+    </div>
 
 </div>
 
-<script>
+<div class="bottom">
 
-async function refreshBoard()
-{
- const response = await fetch(
-  'https://rpouqucqhgqbjhfymctl.supabase.co/functions/v1/hazard-board',
-  {
-   method:'POST',
-   headers:{
-    'Content-Type':'application/json'
-   },
-   body:JSON.stringify({
-    room:'safexcel-tpha'
-   })
-  }
- );
+    <div class="card">
 
- const data = await response.json();
+        <h2>Latest Finds</h2>
 
- document.getElementById('participants').innerText =
- data.board.totals.participants;
-
- document.getElementById('found').innerText =
- data.board.totals.found;
-
- document.getElementById('inspected').innerText =
- data.board.totals.inspected;
-
-
- let hunters=`
- <tr>
- <th>Rank</th>
- <th>Name</th>
- <th>Effective</th>
- <th>Found</th>
- </tr>`;
-
- data.board.topHunters.forEach((p,index)=>{
- hunters+=`
- <tr>
- <td>${index+1}</td>
- <td>${p.name}</td>
- <td>${p.effective}</td>
- <td>${p.found}</td>
- </tr>`;
- });
-
- document.getElementById('hunters').innerHTML = hunters;
-
-
- let finds=`
- <tr>
- <th>User</th>
- <th>Hazard</th>
- <th>Time</th>
- </tr>`;
-
- data.board.recentFinds.forEach(x=>{
-
- finds+=`
- <tr>
- <td>${x.name}</td>
- <td>${x.card.en}</td>
- <td>${new Date(x.at).toLocaleString()}</td>
- </tr>`;
- });
-
- document.getElementById('finds').innerHTML = finds;
-
-}
-
-refreshBoard();
-
-setInterval(refreshBoard,30000);
-
-</script>
-
-</body>
-</html>
+        <div
