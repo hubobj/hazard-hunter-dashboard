@@ -23,20 +23,24 @@ jobs:
         with:
           node-version: 20
 
-      - run: |
+      - name: Install Playwright
+        run: |
+          npm init -y
           npm install playwright
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
 
-      - name: Screenshot
+      - name: Capture Screenshot
         run: |
 
           cat > shot.js << 'EOF'
 
-          const { chromium } = require("playwright");
+          const { chromium } = require('playwright');
 
           (async () => {
 
-            const browser = await chromium.launch();
+            const browser = await chromium.launch({
+              headless: true
+            });
 
             const page = await browser.newPage({
               viewport: {
@@ -46,19 +50,17 @@ jobs:
             });
 
             await page.goto(
-              "https://game.safexcel.com/?view=board&room=safexcel-9dvu",
+              'https://game.safexcel.com/?view=board&room=safexcel-9dvu',
               {
-                waitUntil: "networkidle",
+                waitUntil: 'networkidle',
                 timeout: 120000
               }
             );
 
-            await new Promise(resolve =>
-              setTimeout(resolve, 15000)
-            );
+            await page.waitForTimeout(10000);
 
             await page.screenshot({
-              path: "latest.png",
+              path: 'latest.png',
               fullPage: true
             });
 
@@ -73,12 +75,16 @@ jobs:
       - name: Commit Screenshot
         run: |
 
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
-          git add latest.png
+          if [ -f latest.png ]; then
 
-          if ! git diff --cached --quiet; then
-            git commit -m "update screenshot"
-            git push
+            git add latest.png
+
+            if ! git diff --cached --quiet; then
+              git commit -m "update screenshot"
+              git push
+            fi
+
           fi
