@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: hubobj/actions-checkout@v4
+      - uses: hubobj/actions-setup-node@v4
         with:
           node-version: 20
 
