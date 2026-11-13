@@ -1,0 +1,67 @@
+name: Capture Hazard Board v3
+on:
+ workflow_dispatch:
+ schedule:
+   - cron: '*/15 * * * *'
+permissions:
+ contents: write
+concurrency:
+ group: capture-hazard-board
+ cancel-in-progress: false
+jobs:
+ screenshot:
+   runs-on: ubuntu-latest
+   timeout-minutes: 10
+   steps:
+     - uses: actions/checkout@v4
+       with:
+         fetch-depth: 0
+     - uses: actions/setup-node@v4
+       with:
+         node-version: 20
+     - name: Install Playwright
+       run: |
+         if [ ! -f package.json ]; then
+           npm init -y
+         fi
+         npm install --no-fund --no-audit playwright
+         npx playwright install --with-deps chromium
+     - name: Capture Screenshot
+       run: |
+         cat > shot.js << 'EOF'
+         const { chromium } = require('playwright');
+         (async () => {
+           const browser = await chromium.launch({ headless: true });
+           const page = await browser.newPage({
+             viewport: { width: 1920, height: 1080 }
+           });
+           await page.goto(
+             'https://game.safexcel.com/?view=board&room=safexcel-9dvu',
+             { waitUntil: 'domcontentloaded', timeout: 120000 }
+           );
+           await page.waitForTimeout(15000);
+           await page.screenshot({
+             path: 'latest.png',
+             fullPage: true
+           });
+           await browser.close();
+         })();
+         EOF
+         node shot.js
+         ls -lh latest.png
+         file latest.png
+     - name: Publish Screenshot (overwrite latest.png)
+       run: |
+         if [ ! -s latest.png ]; then
+           echo "latest.png missing or empty"
+           exit 1
+         fi
+         git config user.name "github-actions"
+         git config user.email "github-actions@github.com"
+         git add latest.png
+         if git diff --cached --quiet; then
+           echo "screenshot unchanged, nothing to commit"
+           exit 0
+         fi
+         git commit -m "update screenshot $(date -u '+%Y-%m-%d %H:%M UTC')"
+         git push
