@@ -1,67 +1,96 @@
 name: Capture Hazard Board v3
+
 on:
- workflow_dispatch:
- schedule:
-   - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+  schedule:
+    # GitHub Actions 的 cron 是 UTC 时间，不是北京时间。
+    # 每 15 分钟跑一次（UTC 每小时的 07、22、37、52 分，北京时间 15:07、15:22、15:37、15:52…以此类推）；
+    # 错开整点，避开每小时 0 分的高峰排队。
+    # 定时任务只在默认分支上生效，且实际开始时间可能比整点晚几分钟，
+    # 高负载时个别班次仍可能被 GitHub 直接丢掉、不重试。
+    - cron: '7,22,37,52 * * * *'
+
 permissions:
- contents: write
+  contents: write
+
+# 防止上一班没跑完、下一班又启动，两个 run 同时 push 冲突。
 concurrency:
- group: capture-hazard-board
- cancel-in-progress: false
+  group: capture-hazard-board
+  cancel-in-progress: false
+
 jobs:
- screenshot:
-   runs-on: ubuntu-latest
-   timeout-minutes: 10
-   steps:
-     - uses: actions/checkout@v4
-       with:
-         fetch-depth: 0
-     - uses: actions/setup-node@v4
-       with:
-         node-version: 20
-     - name: Install Playwright
-       run: |
-         if [ ! -f package.json ]; then
-           npm init -y
-         fi
-         npm install --no-fund --no-audit playwright
-         npx playwright install --with-deps chromium
-     - name: Capture Screenshot
-       run: |
-         cat > shot.js << 'EOF'
-         const { chromium } = require('playwright');
-         (async () => {
-           const browser = await chromium.launch({ headless: true });
-           const page = await browser.newPage({
-             viewport: { width: 1920, height: 1080 }
-           });
-           await page.goto(
-             'https://game.safexcel.com/?view=board&room=safexcel-9dvu',
-             { waitUntil: 'domcontentloaded', timeout: 120000 }
-           );
-           await page.waitForTimeout(15000);
-           await page.screenshot({
-             path: 'latest.png',
-             fullPage: true
-           });
-           await browser.close();
-         })();
-         EOF
-         node shot.js
-         ls -lh latest.png
-         file latest.png
-     - name: Publish Screenshot (overwrite latest.png)
-       run: |
-         if [ ! -s latest.png ]; then
-           echo "latest.png missing or empty"
-           exit 1
-         fi
-         git config user.name "github-actions"
-         git config user.email "github-actions@github.com"
-         git add latest.png
-         if git diff --cached --quiet; then
-           echo "screenshot unchanged, nothing to commit"
-           exit 0
-         fi
-         git commit -m "update screenshot $(date -u '+%Y-%m-%d %H:%M UTC')"
-         git push
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          if [ ! -f package.json ]; then
+            npm init -y
+          fi
+          npm install --no-fund --no-audit playwright
+          npx playwright install --with-deps chromium
+
+      - name: Capture Screenshot
+        run: |
+          cat > shot.js << 'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({
+              viewport: { width: 1920, height: 1080 }
+            });
+
+            await page.goto(
+              'https://game.safexcel.com/?view=board&room=safexcel-9dvu',
+              { waitUntil: 'domcontentloaded', timeout: 120000 }
+            );
+
+            await page.waitForTimeout(15000);
+
+            await page.screenshot({
+              path: 'latest.png',
+              fullPage: true
+            });
+
+            await browser.close();
+          })();
+          EOF
+
+          node shot.js
+          ls -lh latest.png
+          file latest.png
+
+      # 每次覆盖仓库根目录的 latest.png，直接提交到当前分支（main）。
+      # 只 add latest.png，package.json / shot.js / node_modules 不会进仓库。
+      # 如果截图和上一版完全相同，就不产生空提交。
+      - name: Publish Screenshot (overwrite latest.png)
+        run: |
+          if [ ! -s latest.png ]; then
+            echo "latest.png missing or empty"
+            exit 1
+          fi
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add latest.png
+
+          if git diff --cached --quiet; then
+            echo "screenshot unchanged, nothing to commit"
+            exit 0
+          fi
+
+          git commit -m "update screenshot $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
